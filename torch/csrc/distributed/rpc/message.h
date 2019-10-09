@@ -34,10 +34,14 @@ enum MessageType {
   MESSAGE_WITH_AUTOGRAD_REQ = 14,
   MESSAGE_WITH_AUTOGRAD_RESP = 15,
 
+  // Messages to propagate gradients on the backward pass.
+  PROPAGATE_GRADIENTS_REQ = 16,
+  PROPAGATE_GRADIENTS_RESP = 17,
+
   // Other internal message types
-  SHUTDOWN = 16,
-  EXCEPTION = 17,
-  UNKNOWN = 18
+  SHUTDOWN = 50,
+  EXCEPTION = 55,
+  UNKNOWN = 60
 };
 
 // A message to be sent/received by an RpcAgent.
