@@ -22,6 +22,8 @@ struct TORCH_API LBFGSOptions {
   TORCH_ARG(float, tolerance_grad) = 1e-5;
   TORCH_ARG(float, tolerance_change) = 1e-9;
   TORCH_ARG(size_t, history_size) = 100;
+  // Newly added
+  TORCH_ARG(int64_t, line_search_fn) = 0;
 };
 
 class TORCH_API LBFGS : public LossClosureOptimizer {
@@ -57,6 +59,12 @@ class TORCH_API LBFGS : public LossClosureOptimizer {
 
   Tensor gather_flat_grad();
   void add_grad(const torch::Tensor& step_size, const Tensor& update);
+  /**
+   * Newly added.
+   */
+  std::vector<Tensor> clone_param();
+  void set_param(std::vector<Tensor>& parameters_data);
+  std::vector<Tensor> directional_evaluate(LossClosure closure, std::vector<Tensor>& x, Tensor& t, Tensor& d);
 
   template <typename Self, typename Archive>
   static void serialize(Self& self, Archive& archive) {
