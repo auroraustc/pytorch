@@ -51,14 +51,11 @@ Tensor cubic_interpolate(Tensor& x1, Tensor& f1, Tensor& g1, Tensor& x2, Tensor&
 std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vector<Tensor>(std::vector<Tensor>& x, Tensor& t, Tensor& d)> obj_func, std::vector<Tensor>& x, Tensor & t, Tensor & d, Tensor & f, Tensor & g, Tensor & gtd, double c1 = 1e-4, double c2 = 0.9, double tolerance_change = 1e-9, int64_t max_ls=25) {
   // ported from torch/optim/lbfgs.py # ported from https://github.com/torch/optim/blob/master/lswolfe.lua
   torch::Tensor d_norm = d.abs().max();
-  // std::cout << "d_norm:" << d_norm << std::endl;
   g = g.clone();
   // evaluate objective and gradient using initial step
   std::vector<Tensor> obj_func_return = obj_func(x, t, d);
-  // std::cout << "****x: " << x[0][4][4] << std::endl;
   torch::Tensor f_new = obj_func_return[0];
   torch::Tensor g_new = obj_func_return[1];
-  // std::cout << "****f_new, g_new" << f_new << g_new[4] << std::endl;
   int64_t ls_func_evals = 1;
   torch::Tensor gtd_new = g_new.dot(d);
 
@@ -73,7 +70,6 @@ std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vect
   std::vector<Tensor> bracket_f;
   std::vector<Tensor> bracket_g;
   std::vector<Tensor> bracket_gtd;
-  // std::cout << "****x:" << x[0][4][4] << std::endl;
   while (ls_iter < max_ls) {
     // check conditions
     if (((f_new > (f + c1 * t * gtd)).item<bool>()) || ((ls_iter > 1) && ((f_new >= f_prev).item<bool>()))) {
@@ -83,16 +79,12 @@ std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vect
       bracket_gtd.resize(2); bracket_gtd.at(0) = gtd_prev; bracket_gtd.at(1) = gtd_new;
       break;
     }
-    // std::cout << "break ckpt1" << std::endl;
-    // std::cout << "****x:" << x[0][4][4] << std::endl;
     if ((torch::abs(gtd_new) <= (-c2 * gtd)).item<bool>()) {
       bracket.resize(1); bracket.at(0) = t;
       bracket_f.resize(1); bracket_f.at(0) = f_new;
       bracket_g.resize(1); bracket_g.at(0) = g_new;
       done = true;
     }
-    // std::cout << "break ckpt2" << std::endl;
-    // std::cout << "****x:" << x[0][4][4] << std::endl;
     if ((gtd_new >= 0).item<bool>()) {
       bracket.resize(2); bracket.at(0) = t_prev; bracket.at(1) = t;
       bracket_f.resize(2); bracket_f.at(0) = f_prev; bracket_f.at(1) = f_new;
@@ -100,42 +92,24 @@ std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vect
       bracket_gtd.resize(2); bracket_gtd.at(0) = gtd_prev; bracket_gtd.at(1) = gtd_new;
       break;
     }
-    // std::cout << "break ckpt3" << std::endl;
-    // std::cout << "****x:" << x[0][4][4] << std::endl;
-    // std::cout << "ckpt1" << std::endl;
     // interpolate
     torch::Tensor bounds = torch::zeros({2,1}, t.options());
     torch::Tensor tmp = t;
-    // std::cout << "t" << t << std::endl;
     bounds[0] = t + 0.01 * (t - t_prev);
     bounds[1] = t * 10;
-    // std::cout << "min_step, max_step:" << bounds[0] << "," << bounds[1] << std::endl;
-    // std::cout << "ckpt1.25" << std::endl;
-    // std::cout << "****x:" << x[0][4][4] << std::endl;
     t = cubic_interpolate(t_prev, f_prev, gtd_prev, t, f_new, gtd_new, bounds);
-    // std::cout << "t: " << t << std::endl;
-    // std::cout << "ckpt1.5" << std::endl;
     // next step
     t_prev = tmp;
     f_prev = f_new;
-    // std::cout << "f_prev:" << f_prev << std::endl;
     g_prev = g_new.clone();
-    // std::cout << "f_prev:" << g_prev[4] << std::endl;
     gtd_prev = gtd_new;
-    // std::cout << "gtd_prev:" << gtd_prev << std::endl;
-    // std::cout << "****x:" << x[0][4][4] << std::endl;
     obj_func_return = obj_func(x, t, d);
-    // std::cout << "*x,t,d:" << x[0][4][4] << t << d[4] << std::endl;
     f_new = obj_func_return[0];
     g_new = obj_func_return[1];
-    // std::cout << "f_new:" << f_new << std::endl;
-    // std::cout << "g_new:" << g_new[4] << std::endl;
     ls_func_evals += 1;
     gtd_new = g_new.dot(d);
     ls_iter += 1;
-    // std::cout << "ls_iter:" << ls_iter << std::endl;
   }
-  // std::cout << "ckpt2" << std::endl;
   // reached max number of iterations?
   if (ls_iter == max_ls) {
     bracket.resize(2); bracket.at(0) = torch::zeros(1, t.options()); bracket.at(1) = t;
@@ -159,7 +133,6 @@ std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vect
     low_pos = 1;
     high_pos = 0;
   }
-  // std::cout << "ckpt3" << std::endl;
   while ((!done) && (ls_iter < max_ls)) {
     // compute new trial value
     t = cubic_interpolate(bracket.at(0), bracket_f.at(0), bracket_gtd.at(0), bracket.at(1), bracket_f.at(1), bracket_gtd.at(1));
@@ -199,7 +172,6 @@ std::tuple<Tensor, Tensor, Tensor, int64_t> strong_wolfe(std::function<std::vect
     ls_func_evals += 1;
     gtd_new = g_new.dot(d);
     ls_iter += 1;
-    // std::cout << "ckpt4" << std::endl;
     if ((f_new > (f + c1 * t * gtd)).item<bool>() || (f_new >= bracket_f.at(low_pos)).item<bool>()) {
       // Armijo condition not satisfied or not lower than lowest point
       bracket.at(high_pos) = t;
@@ -273,10 +245,7 @@ void LBFGS::add_grad(const torch::Tensor& step_size, const Tensor& update) {
         update.slice(0, offset, offset + numel, 1).view_as(parameter),
         step_size.item<float>());
     offset += numel;
-    // std::cout << "t:" << step_size << "d:" << update[offset - numel] << std::endl;
-    // std::cout << "*offset:" << offset << std::endl;
   }
-  // std::cout << "parameters_:" << parameters_[0][4][4] << std::endl;
 }
 
 /**
@@ -292,7 +261,6 @@ std::vector<Tensor> LBFGS::clone_param() {
 
 void LBFGS::set_param(std::vector<Tensor>& parameters_data) {
   NoGradGuard guard;
-  // std::cout << "****x1.5:" << parameters_data[0][4][4] << std::endl;
   for (int i = 0; i <= parameters_.size() - 1; i++) {
     parameters_.at(i).copy_(parameters_data.at(i));
   }
@@ -301,26 +269,22 @@ void LBFGS::set_param(std::vector<Tensor>& parameters_data) {
 
 std::vector<Tensor> LBFGS::directional_evaluate(LossClosure closure, std::vector<Tensor>& x, Tensor& t, Tensor& d) {
   add_grad(t, d);
-  // std::cout << "***t,d: " << t << d[4] << std::endl;
-  torch::Tensor loss = closure().clone();
+  torch::Tensor loss = closure().clone().detach();
   torch::Tensor flat_grad = gather_flat_grad();
-  // std::cout << "****x:" << x[0][4][4] << std::endl;
   set_param(x);
-  // std::cout << "****x2:" << x[0][4][4] << std::endl;
   return {loss, flat_grad};
 }
 
 torch::Tensor LBFGS::step(LossClosure closure) {
   torch::Tensor orig_loss = closure();
-  torch::Tensor loss = orig_loss.clone();
+  torch::Tensor loss = orig_loss.clone().detach();
   int64_t current_evals = 1;
   func_evals += 1;
 
   Tensor flat_grad = gather_flat_grad();
   Tensor abs_grad_sum = flat_grad.abs().sum();
-  bool opt_cond = (flat_grad.abs().sum() <= options.tolerance_grad()).item<bool>();
 
-  if (opt_cond) {
+  if (abs_grad_sum.item<float>() <= options.tolerance_grad()) {
     return loss;
   }
 
@@ -378,14 +342,9 @@ torch::Tensor LBFGS::step(LossClosure closure) {
         Tensor be_i = old_dirs.at(i).dot(r) * ro.at(i);
         r.add_(old_stps.at(i), (al.at(i) - be_i).item());
       }
-      
-    }
-    if (!prev_flat_grad.defined()) {
-      prev_flat_grad = flat_grad.clone();
-    } else {
       prev_flat_grad.copy_(flat_grad);
     }
-    prev_loss = loss;
+    // prev_loss = loss;
     /**
      * compute step length
      */
@@ -398,9 +357,7 @@ torch::Tensor LBFGS::step(LossClosure closure) {
     }
 
     Tensor gtd = flat_grad.dot(d);
-    if ((gtd > -options.tolerance_change()).item<bool>()) {
-      break;
-    }
+    // std::cout << d.sizes() << std::endl;
     int64_t ls_func_evals = 0;
     if (options.line_search_fn() != 0) {
       /**
@@ -409,14 +366,12 @@ torch::Tensor LBFGS::step(LossClosure closure) {
         */
       if (options.line_search_fn() == 1) {
         std::vector<Tensor> x_init = clone_param();
-        // std::cout << "**x_init: " << x_init[0][4][4] << std::endl;
         std::function<std::vector<Tensor>(std::vector<Tensor>& x, Tensor& t, Tensor& d)> obj_func = [&](std::vector<Tensor>& x, Tensor& t, Tensor& d){
           return directional_evaluate(closure, x, t, d);
         };
         std::tie(loss, flat_grad, t, ls_func_evals) = strong_wolfe(obj_func, x_init, t, d, loss, flat_grad, gtd);
         add_grad(t, d);
-        opt_cond = (flat_grad.abs().sum() <= options.tolerance_grad()).item<bool>();
-        // std::cout << "ls_func_evals " << ls_func_evals << " opt_cond " << opt_cond << std::endl;
+        abs_grad_sum = flat_grad.abs().sum();
       }
     } else {
       add_grad(t, d);
@@ -427,14 +382,13 @@ torch::Tensor LBFGS::step(LossClosure closure) {
         loss = closure();
         flat_grad = gather_flat_grad();
         abs_grad_sum = flat_grad.abs().sum();
-        opt_cond = abs_grad_sum.item<float>() <= options.tolerance_grad();
         ls_func_evals = 1;
       }
     }
     
 
     current_evals += ls_func_evals;
-    func_evals += ls_func_evals;
+    // func_evals += ls_func_evals;
 
     /**
      * Check conditions
@@ -444,9 +398,7 @@ torch::Tensor LBFGS::step(LossClosure closure) {
       break;
     } else if (current_evals >= options.max_eval()) {
       break;
-    } /*else if (abs_grad_sum.item<float>() <= options.tolerance_grad()) {
-      break;
-    }*/ else if (opt_cond) {
+    } else if (abs_grad_sum.item<float>() <= options.tolerance_grad()) {
       break;
     } else if (gtd.item<float>() > -options.tolerance_grad()) {
       break;
